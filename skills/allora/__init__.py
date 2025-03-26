@@ -1,6 +1,6 @@
 """Allora skill module."""
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from abstracts.skill import SkillStoreABC
 from skills.allora.base import AlloraBaseTool
@@ -15,19 +15,14 @@ class SkillStates(TypedDict):
     get_price_prediction: SkillState
 
 
-class AlloraClientConfig(TypedDict):
-    """Configuration for Allora API client."""
-
-    api_key: str
-
-
-class Config(SkillConfig, AlloraClientConfig):
+class Config(SkillConfig):
     """Configuration for Allora skills."""
 
     states: SkillStates
+    api_key: NotRequired[str]
 
 
-def get_skills(
+async def get_skills(
     config: "Config",
     is_private: bool,
     store: SkillStoreABC,

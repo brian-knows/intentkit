@@ -152,7 +152,7 @@ async def debug_chat_history(
     db: AsyncSession = Depends(get_db),
 ) -> str:
     resp = f"Agent ID:\t{agent_id}\n\nChat ID:\t{chat_id}\n\n-------------------\n\n"
-    messages = await get_chat_history(agent_id, chat_id, db)
+    messages = await get_chat_history(agent_id, chat_id, user_id=None, db=db)
     if messages:
         resp += format_debug_messages(messages)
     else:
@@ -299,11 +299,6 @@ async def get_chat_history(
     db: AsyncSession = Depends(get_db),
 ) -> List[ChatMessage]:
     """Get last 50 messages for a specific chat.
-
-    **Special Chat IDs:**
-    * `autonomous` - Autonomous log
-    * `public` - Public chat history in X and TG groups
-    * `owner` - Owner chat history (coming soon)
 
     **Path Parameters:**
     * `aid` - Agent ID
@@ -547,9 +542,6 @@ async def create_chat_deprecated(
     * `429` - Quota exceeded
     * `500` - Internal server error
     """
-    # Check chat ID
-    if request.chat_id.startswith("owner") or request.chat_id.startswith("autonomous"):
-        raise HTTPException(status_code=400, detail="Invalid chat ID")
     # Get agent and validate quota
     agent = await Agent.get(aid)
     if not agent:
@@ -607,7 +599,6 @@ async def create_chat_deprecated(
 async def create_chat(
     request: ChatMessageRequest,
     aid: str = Path(..., description="Agent ID"),
-    owner_mode: bool = Query(False, description="Enable owner mode"),
 ) -> list[ChatMessage]:
     """Create a chat message and get agent's response.
 
@@ -624,9 +615,6 @@ async def create_chat(
     **Path Parameters:**
     * `aid` - Agent ID
 
-    **Query Parameters:**
-    * `owner_mode` - Enable owner mode
-
     **Request Body:**
     * `request` - Chat message request object
 
@@ -638,15 +626,6 @@ async def create_chat(
     * `429` - Quota exceeded
     * `500` - Internal server error
     """
-    # Check owner mode
-    if owner_mode:
-        if not request.chat_id.startswith("owner"):
-            raise HTTPException(status_code=400, detail="Invalid owner chat ID")
-    else:
-        if request.chat_id.startswith("owner") or request.chat_id.startswith(
-            "autonomous"
-        ):
-            raise HTTPException(status_code=400, detail="Invalid chat ID")
     # Get agent and validate quota
     agent = await Agent.get(aid)
     if not agent:

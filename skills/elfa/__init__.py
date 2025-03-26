@@ -1,6 +1,6 @@
 """Elfa skills."""
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from abstracts.skill import SkillStoreABC
 from skills.base import SkillConfig, SkillState
@@ -21,19 +21,14 @@ class SkillStates(TypedDict):
     get_smart_stats: SkillState
 
 
-class ElfaConfig(TypedDict):
-    """Configuration for Elfa API client."""
-
-    api_key: str
-
-
-class Config(SkillConfig, ElfaConfig):
+class Config(SkillConfig):
     """Configuration for Elfa skills."""
 
     states: SkillStates
+    api_key: NotRequired[str]
 
 
-def get_skills(
+async def get_skills(
     config: "Config",
     is_private: bool,
     store: SkillStoreABC,

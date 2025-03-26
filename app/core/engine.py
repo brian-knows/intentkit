@@ -75,7 +75,6 @@ from skills.twitter import get_twitter_skill
 
 logger = logging.getLogger(__name__)
 
-_agent_configs: dict[str, Agent] = {}
 
 # Global variable to cache all agent executors
 _agents: dict[str, CompiledGraph] = {}
@@ -175,20 +174,23 @@ async def initialize_agent(aid, is_private=False):
 
     if agent.skills:
         for k, v in agent.skills.items():
+            if not v.get("enabled", False):
+                continue
             try:
                 skill_module = importlib.import_module(f"skills.{k}")
                 if hasattr(skill_module, "get_skills"):
-                    skill_tools = skill_module.get_skills(
+                    skill_tools = await skill_module.get_skills(
                         v, is_private, skill_store, agent_id=aid
                     )
                     if skill_tools and len(skill_tools) > 0:
                         tools.extend(skill_tools)
                 else:
                     logger.error(f"Skill {k} does not have get_skills function")
-            except ImportError:
-                logger.error(f"Could not import skill module: {k}")
+            except ImportError as e:
+                logger.error(f"Could not import skill module: {k} ({e})")
 
     # Configure CDP Agentkit Langchain Extension.
+    # Deprecated
     cdp_wallet_provider = None
     if (
         agent.cdp_enabled
@@ -331,17 +333,7 @@ async def initialize_agent(aid, is_private=False):
             try:
                 s = get_enso_skill(
                     skill,
-                    agent.enso_config.get("api_token"),
-                    agent.enso_config.get("main_tokens", list[str]()),
-                    cdp_wallet_provider._wallet if cdp_wallet_provider else None,
-                    (
-                        config.chain_provider
-                        if hasattr(config, "chain_provider") and config.chain_provider
-                        else None
-                    ),
                     skill_store,
-                    agent_store,
-                    aid,
                 )
                 tools.append(s)
             except Exception as e:
@@ -365,14 +357,12 @@ async def initialize_agent(aid, is_private=False):
     if (
         agent.allora_skills
         and len(agent.allora_skills) > 0
-        and agent.allora_config
         and ("allora" not in agent.skills if agent.skills else True)
     ):
         for skill in agent.allora_skills:
             try:
                 s = get_allora_skill(
                     skill,
-                    agent.allora_config.get("api_key"),
                     skill_store,
                 )
                 tools.append(s)
@@ -382,14 +372,12 @@ async def initialize_agent(aid, is_private=False):
     if (
         agent.elfa_skills
         and len(agent.elfa_skills) > 0
-        and agent.elfa_config
         and ("elfa" not in agent.skills if agent.skills else True)
     ):
         for skill in agent.elfa_skills:
             try:
                 s = get_elfa_skill(
                     skill,
-                    agent.elfa_config.get("api_key"),
                     skill_store,
                 )
                 tools.append(s)
@@ -433,7 +421,7 @@ async def initialize_agent(aid, is_private=False):
         return prompt_temp.invoke({"messages": state["messages"]})
 
     # hack for deepseek, it doesn't support tools
-    if agent.model.startswith("deepseek"):
+    if agent.model.startswith("deepseek-reasoner"):
         tools = []
 
     # log all tools
@@ -455,7 +443,6 @@ async def initialize_agent(aid, is_private=False):
         debug=config.debug_checkpoint,
         input_token_limit=input_token_limit,
     )
-    _agent_configs[aid] = agent
     if is_private:
         _private_agents[aid] = executor
         _private_agents_updated[aid] = agent.updated_at
@@ -511,10 +498,14 @@ async def execute_agent(
     Returns:
         list[ChatMessage]: Formatted response lines including timing information
     """
+    # make sure reply_to is set
+    message.reply_to = message.id
     input = await message.save()
 
+    agent = await Agent.get(input.agent_id)
+
     is_private = False
-    if input.chat_id.startswith("owner") or input.chat_id.startswith("autonomous"):
+    if input.user_id == agent.owner:
         is_private = True
 
     resp = []
@@ -547,7 +538,7 @@ async def execute_agent(
     thread_id = f"{input.agent_id}-{input.chat_id}"
     stream_config = {
         "configurable": {
-            "agent": _agent_configs[input.agent_id],
+            "agent": agent,
             "thread_id": thread_id,
             "user_id": input.user_id,
             "entrypoint": input.author_type,

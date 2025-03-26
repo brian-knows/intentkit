@@ -10,28 +10,28 @@
       "order": 1
     },
     {
-      "id": "ai",
-      "title": "AI Model",
+      "id": "llm",
+      "title": "LLM",
       "order": 2
-    },
-    {
-      "id": "autonomous",
-      "title": "Autonomous",
-      "order": 3
     },
     {
       "id": "onchain",
       "title": "On-Chain",
-      "order": 4
+      "order": 3
     },
     {
-      "id": "social",
-      "title": "Social",
-      "order": 5
+      "id": "entrypoint",
+      "title": "Communication Channels",
+      "order": 4
     },
     {
       "id": "skills",
       "title": "Skills",
+      "order": 5
+    },
+    {
+      "id": "autonomous",
+      "title": "Autonomous",
       "order": 6
     },
     {
@@ -52,28 +52,23 @@
   ],
   "required": [
     "name",
-    "ticker",
+    "model",
     "purpose",
     "personality",
-    "model"
+    "principles",
+    "mode"
   ],
   "properties": {
     "name": {
+      "title": "Agent Name",
       "type": "string",
       "description": "Display name of the agent",
       "maxLength": 50,
       "x-group": "basic",
       "x-placeholder": "Enter agent name"
     },
-    "slug": {
-      "type": "string",
-      "description": "Slug of the agent, used for URL generation",
-      "maxLength": 30,
-      "minLength": 2,
-      "readOnly": true,
-      "x-group": "internal"
-    },
     "ticker": {
+      "title": "Ticker",
       "type": "string",
       "description": "Ticker symbol of the agent",
       "maxLength": 10,
@@ -81,40 +76,70 @@
       "x-group": "basic",
       "x-placeholder": "Enter agent ticker"
     },
-    "purpose": {
+    "token_address": {
+      "title": "Token Address",
       "type": "string",
-      "description": "Purpose or role of the agent",
-      "maxLength": 20000,
-      "pattern": "^(([^#].*)|#[^# ].*|#{3,}[ ].*|$)(\n(([^#].*)|#[^# ].*|#{3,}[ ].*|$))*$",
-      "errorMessage": {
-        "pattern": "Level 1 and 2 headings (# and ##) are not allowed. Please use level 3+ headings (###, ####, etc.) instead."
-      },
-      "x-group": "basic",
-      "x-placeholder": "Enter agent purpose"
+      "description": "Token address of the agent",
+      "maxLength": 42,
+      "readOnly": true,
+      "x-group": "internal"
     },
-    "personality": {
+    "token_pool": {
+      "title": "Token Pool",
       "type": "string",
-      "description": "Personality traits of the agent",
-      "maxLength": 20000,
-      "pattern": "^(([^#].*)|#[^# ].*|#{3,}[ ].*|$)(\n(([^#].*)|#[^# ].*|#{3,}[ ].*|$))*$",
-      "errorMessage": {
-        "pattern": "Level 1 and 2 headings (# and ##) are not allowed. Please use level 3+ headings (###, ####, etc.) instead."
-      },
-      "x-group": "basic",
-      "x-placeholder": "Enter agent personality"
+      "description": "Pool of the agent token",
+      "maxLength": 42,
+      "readOnly": true,
+      "x-group": "internal"
     },
-    "principles": {
+    "mode": {
+      "title": "Usage Type",
       "type": "string",
-      "description": "Principles or values of the agent",
-      "maxLength": 20000,
-      "pattern": "^(([^#].*)|#[^# ].*|#{3,}[ ].*|$)(\n(([^#].*)|#[^# ].*|#{3,}[ ].*|$))*$",
-      "errorMessage": {
-        "pattern": "Level 1 and 2 headings (# and ##) are not allowed. Please use level 3+ headings (###, ####, etc.) instead."
-      },
+      "description": "Mode of the agent, public or private",
+      "enum": [
+        "public",
+        "private"
+      ],
+      "x-enum-title": [
+        "Public App",
+        "Personal Assistant"
+      ],
+      "x-group": "basic"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string",
+      "description": "Description of the agent, for public view, not contained in prompt",
+      "maxLength": 3000,
       "x-group": "basic",
-      "x-placeholder": "Enter agent principles"
+      "x-placeholder": "Introduce your agent"
+    },
+    "external_website": {
+      "title": "External Website",
+      "type": "string",
+      "description": "Link of external website of the agent, if you have one",
+      "format": "uri",
+      "x-group": "basic",
+      "x-placeholder": "Enter agent external website url"
+    },
+    "picture": {
+      "title": "Picture",
+      "type": "string",
+      "description": "Picture of the agent",
+      "x-group": "experimental",
+      "x-placeholder": "Upload a picture of your agent"
+    },
+    "slug": {
+      "title": "Slug",
+      "type": "string",
+      "description": "Slug of the agent, used for URL generation",
+      "maxLength": 30,
+      "minLength": 2,
+      "readOnly": true,
+      "x-group": "internal"
     },
     "owner": {
+      "title": "Owner",
       "type": "string",
       "description": "Owner identifier of the agent, used for access control",
       "readOnly": true,
@@ -122,6 +147,7 @@
       "x-group": "internal"
     },
     "upstream_id": {
+      "title": "Upstream ID",
       "type": "string",
       "description": "External reference ID for idempotent operations",
       "readOnly": true,
@@ -129,159 +155,450 @@
       "x-group": "internal"
     },
     "model": {
+      "title": "AI Model",
       "type": "string",
-      "description": "AI model identifier to be used by this agent for processing requests. Available models: gpt-4o, gpt-4o-mini, deepseek-chat, deepseek-reasoner, grok-2, eternalai",
+      "description": "Select the LLM for your agent. Note that each LLM has its specific advantages, behaviour and cost.",
       "default": "gpt-4o-mini",
       "enum": [
-        "gpt-4o",
         "gpt-4o-mini",
         "deepseek-chat",
         "deepseek-reasoner",
+        "gpt-4o",
         "grok-2",
         "eternalai"
       ],
-      "x-group": "ai"
+      "x-enum-title": [
+        "GPT-4o mini",
+        "DeepSeek V3",
+        "DeepSeek R1",
+        "GPT-4o",
+        "Grok-2",
+        "EternalAI"
+      ],
+      "x-support-skill": [
+        true,
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "x-group": "llm"
+    },
+    "purpose": {
+      "title": "Purpose",
+      "type": "string",
+      "description": "Tell the agent what’s its purpose and what needs should it serve.",
+      "maxLength": 20000,
+      "pattern": "^(([^#].*)|#[^# ].*|#{3,}[ ].*|$)(\n(([^#].*)|#[^# ].*|#{3,}[ ].*|$))*$",
+      "errorMessage": {
+        "pattern": "Level 1 and 2 headings (# and ##) are not allowed. Please use level 3+ headings (###, ####, etc.) instead."
+      },
+      "x-group": "llm",
+      "x-placeholder": "Enter agent purpose"
+    },
+    "personality": {
+      "title": "Personality",
+      "type": "string",
+      "description": "Tell the agent what personality it should have and how it should communicate with the users.",
+      "maxLength": 20000,
+      "pattern": "^(([^#].*)|#[^# ].*|#{3,}[ ].*|$)(\n(([^#].*)|#[^# ].*|#{3,}[ ].*|$))*$",
+      "errorMessage": {
+        "pattern": "Level 1 and 2 headings (# and ##) are not allowed. Please use level 3+ headings (###, ####, etc.) instead."
+      },
+      "x-group": "llm",
+      "x-placeholder": "Enter agent personality"
+    },
+    "principles": {
+      "title": "Principles",
+      "type": "string",
+      "description": "Tell the agents what it should and shouldn’t do when it interacts with users or skills.",
+      "maxLength": 20000,
+      "pattern": "^(([^#].*)|#[^# ].*|#{3,}[ ].*|$)(\n(([^#].*)|#[^# ].*|#{3,}[ ].*|$))*$",
+      "errorMessage": {
+        "pattern": "Level 1 and 2 headings (# and ##) are not allowed. Please use level 3+ headings (###, ####, etc.) instead."
+      },
+      "x-group": "llm",
+      "x-placeholder": "Enter agent principles"
     },
     "prompt": {
+      "title": "Knowledge Base",
       "type": "string",
-      "description": "Base system prompt that defines the agent's behavior and capabilities",
+      "description": "Give the agent any additional knowledge. Text only.",
       "maxLength": 20000,
       "pattern": "^(([^#].*)|#[^# ].*|#{3,}[ ].*|$)(\n(([^#].*)|#[^# ].*|#{3,}[ ].*|$))*$",
       "errorMessage": {
         "pattern": "Level 1 and 2 headings (# and ##) are not allowed. Please use level 3+ headings (###, ####, etc.) instead."
       },
-      "x-group": "ai"
+      "x-group": "llm"
     },
     "prompt_append": {
+      "title": "Advanced",
       "type": "string",
-      "description": "Additional system prompt that has higher priority than the base prompt",
+      "description": "Additional system prompt that has higher priority than initial system prompt, only some models support this, if not supported, this part will append to the end of initial system prompt",
       "maxLength": 20000,
       "pattern": "^(([^#].*)|#[^# ].*|#{3,}[ ].*|$)(\n(([^#].*)|#[^# ].*|#{3,}[ ].*|$))*$",
       "errorMessage": {
         "pattern": "Level 1 and 2 headings (# and ##) are not allowed. Please use level 3+ headings (###, ####, etc.) instead."
       },
-      "x-group": "ai"
+      "x-group": "llm"
     },
     "temperature": {
+      "title": "Temperature",
       "type": "number",
-      "description": "AI model temperature parameter controlling response randomness (0.0~2.0)",
+      "description": "Controls creativity: higher values are more creative, lower values are more precise.",
       "default": 0.7,
       "minimum": 0.0,
       "maximum": 2.0,
-      "x-group": "ai"
+      "x-group": "llm",
+      "x-step": 0.1
     },
     "frequency_penalty": {
+      "title": "Frequency Penalty",
       "type": "number",
-      "description": "Frequency penalty for the AI model, a higher value penalizes new tokens based on their existing frequency in the chat history (-2.0~2.0)",
+      "description": "Adjusts repetition: higher values encourage new topics, lower values allow repetition.",
       "default": 0.0,
       "minimum": -2.0,
       "maximum": 2.0,
-      "x-group": "ai"
+      "x-group": "llm",
+      "x-step": 0.1
     },
     "presence_penalty": {
+      "title": "Presence Penalty",
       "type": "number",
-      "description": "Presence penalty for the AI model, a higher value penalizes new tokens based on whether they appear in the chat history (-2.0~2.0)",
+      "description": "Controls topic focus: higher values promote diversity, lower values stay closely on topic.",
       "default": 0.0,
       "minimum": -2.0,
       "maximum": 2.0,
-      "x-group": "ai"
+      "x-group": "llm",
+      "x-step": 0.1
+    },
+    "cdp_enabled": {
+      "title": "CDP Enabled",
+      "type": "boolean",
+      "description": "Whether CDP (Crestal Development Platform) integration is enabled",
+      "default": true,
+      "x-group": "deprecated"
+    },
+    "crossmint_config": {
+      "title": "Crossmint Configuration",
+      "type": "object",
+      "description": "Dict of Crossmint wallet configurations",
+      "x-group": "experimental"
+    },
+    "goat_enabled": {
+      "title": "GOAT Enabled",
+      "type": "boolean",
+      "description": "Whether GOAT integration is enabled",
+      "default": false,
+      "x-group": "experimental"
+    },
+    "goat_skills": {
+      "title": "GOAT Skills",
+      "type": "object",
+      "description": "Dict of GOAT skills and their corresponding configurations",
+      "x-group": "experimental"
+    },
+    "telegram_entrypoint_enabled": {
+      "title": "Enable Telegram Communication",
+      "type": "boolean",
+      "description": "Allow agent to respond to Telegram messages",
+      "default": false,
+      "x-group": "entrypoint"
+    },
+    "telegram_config": {
+      "title": "Telegram Configuration",
+      "type": "object",
+      "description": "Configure your Telegram integration settings",
+      "x-group": "entrypoint",
+      "properties": {
+        "token": {
+          "title": "Bot Token",
+          "type": "string",
+          "description": "Telegram bot token obtained from BotFather"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "integer",
+          "description": "Reserved for future use",
+          "enum": [
+            1
+          ],
+          "default": 1
+        },
+        "group_memory_public": {
+          "title": "Group Memory Public",
+          "type": "boolean",
+          "description": "Whether group memory is public"
+        },
+        "whitelist_chat_ids": {
+          "title": "Whitelist Chat IDs",
+          "type": "array",
+          "description": "List of chat IDs that are allowed to interact with the bot",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "greeting_group": {
+          "title": "Group Greeting",
+          "type": "string",
+          "description": "Custom greeting message for groups"
+        },
+        "greeting_user": {
+          "title": "User Greeting",
+          "type": "string",
+          "description": "Custom greeting message for individual users"
+        }
+      },
+      "required": [
+        "token"
+      ]
+    },
+    "twitter_entrypoint_enabled": {
+      "title": "Enable Twitter Communication",
+      "type": "boolean",
+      "description": "Agent replies automatically to all Twitter mentions (use cautiously)",
+      "default": false,
+      "x-group": "entrypoint"
+    },
+    "twitter_config": {
+      "title": "Enter your Twitter API key",
+      "type": "object",
+      "description": "You must use your own key for twitter entrypoint, it is separated from twitter skills",
+      "x-group": "entrypoint",
+      "properties": {
+        "consumer_key": {
+          "type": "string",
+          "title": "Twitter API consumer key",
+          "description": "Twitter API consumer key",
+          "maxLength": 100
+        },
+        "consumer_secret": {
+          "type": "string",
+          "title": "Twitter API consumer secret",
+          "description": "Twitter API consumer secret",
+          "maxLength": 100
+        },
+        "access_token": {
+          "type": "string",
+          "title": "Twitter API access token",
+          "description": "Twitter API access token",
+          "maxLength": 100
+        },
+        "access_token_secret": {
+          "type": "string",
+          "title": "Twitter API access token secret",
+          "description": "Twitter API access token secret",
+          "maxLength": 100
+        }
+      }
+    },
+    "skills": {
+      "title": "Skills",
+      "type": "object",
+      "description": "Dict of skills and their corresponding configurations",
+      "x-group": "skills",
+      "x-inline": true,
+      "properties": {
+        "cdp": {
+          "title": "Coinbase Wallet",
+          "$ref": "../skills/cdp/schema.json"
+        },
+        "twitter": {
+          "title": "Twitter",
+          "$ref": "../skills/twitter/schema.json"
+        },
+        "acolyt": {
+          "title": "Acolyt",
+          "$ref": "../skills/acolyt/schema.json"
+        },
+        "allora": {
+          "title": "Allora",
+          "$ref": "../skills/allora/schema.json"
+        },
+        "cryptocompare": {
+          "title": "Cryptocompare",
+          "$ref": "../skills/cryptocompare/schema.json"
+        },
+        "defillama": {
+          "title": "Defillama",
+          "$ref": "../skills/defillama/schema.json"
+        },
+        "elfa": {
+          "title": "Elfa",
+          "$ref": "../skills/elfa/schema.json"
+        },
+        "enso": {
+          "title": "Enso",
+          "$ref": "../skills/enso/schema.json"
+        },
+        "slack": {
+          "title": "Slack",
+          "$ref": "../skills/slack/schema.json"
+        },
+        "common": {
+          "title": "Common",
+          "$ref": "../skills/common/schema.json"
+        },
+        "moralis": {
+          "title": "Moralis",
+          "$ref": "../skills/moralis/schema.json"
+        }
+      }
     },
     "autonomous": {
+      "title": "Autonomous",
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
           "id": {
+            "title": "ID",
             "type": "string",
             "description": "Unique identifier for the autonomous configuration",
             "minLength": 1,
             "maxLength": 20,
             "pattern": "^[a-z0-9-]+$",
-            "x-group": "autonomous"
+            "readOnly": true,
+            "x-group": "internal"
           },
           "name": {
+            "title": "Name",
             "type": "string",
-            "description": "Display name of the autonomous configuration",
+            "description": "Name for this automated task",
             "maxLength": 50,
             "x-group": "autonomous"
           },
           "description": {
+            "title": "Description",
             "type": "string",
-            "description": "Description of the autonomous configuration",
+            "description": "Briefly describe what this automation does",
             "maxLength": 200,
             "x-group": "autonomous"
           },
           "minutes": {
+            "title": "Frequency in Minutes",
             "type": "integer",
-            "description": "Interval in minutes between operations, mutually exclusive with cron",
+            "description": "How often to run (in minutes)",
             "default": 1440,
             "x-group": "autonomous"
           },
           "cron": {
+            "title": "Schedule",
             "type": "string",
-            "description": "Cron expression for scheduling operations, mutually exclusive with minutes",
+            "description": "Advanced scheduling (cron format), mutually exclusive with minutes",
             "x-group": "autonomous"
           },
           "prompt": {
+            "title": "Task Prompt",
             "type": "string",
-            "description": "Special prompt used during autonomous operation",
+            "description": "Prompt the agent will execute on schedule",
             "maxLength": 20000,
             "x-group": "autonomous"
           },
           "enabled": {
+            "title": "Enabled",
             "type": "boolean",
-            "description": "Whether the autonomous configuration is enabled",
+            "description": "Turn automation on/off",
             "default": false,
             "x-group": "autonomous"
           }
         },
         "required": [
-          "id",
           "prompt"
         ]
       },
-      "description": "Autonomous agent configurations.\nautonomous:\n  - id: a\n    name: TestA\n    minutes: 1\n    prompt: |-\n      Say hello [sequence], use number for sequence.\n  - id: b\n    name: TestB\n    cron: \"0/3 * * * *\"\n    prompt: |-\n      Say hi [sequence], use number for sequence.",
+      "description": "Set automated prompts and schedules for your agent.",
       "x-group": "autonomous",
       "x-inline": true
     },
-    "autonomous_minutes": {
-      "type": "integer",
-      "description": "Interval in minutes between autonomous operations when enabled",
-      "default": 240,
-      "deprecated": true,
-      "x-group": "deprecated"
-    },
-    "autonomous_prompt": {
-      "type": "string",
-      "description": "Special prompt used during autonomous operation mode",
-      "deprecated": true,
-      "x-group": "deprecated"
-    },
-    "autonomous_enabled": {
+    "enso_enabled": {
+      "title": "Enso Enabled",
       "type": "boolean",
-      "description": "Whether the agent can operate autonomously without user input",
+      "description": "Whether Enso integration is enabled",
       "default": false,
-      "deprecated": true,
-      "x-group": "deprecated"
+      "x-group": "experimental"
     },
-    "cdp_enabled": {
-      "type": "boolean",
-      "description": "Whether CDP (Crestal Development Platform) integration is enabled",
-      "default": false,
-      "x-group": "onchain"
-    },
-    "cdp_skills": {
+    "enso_skills": {
+      "title": "Enso Skills",
       "type": "array",
       "items": {
         "type": "string"
       },
-      "description": "List of CDP skills available to this agent",
+      "description": "List of Enso-specific skills available to this agent",
+      "x-group": "experimental"
+    },
+    "enso_config": {
+      "title": "Enso Configuration",
+      "type": "object",
+      "description": "Enso integration configuration settings",
+      "x-group": "experimental"
+    },
+    "acolyt_skills": {
+      "title": "Acolyt Skills",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of Acolyt-specific skills available to this agent",
       "deprecated": true,
       "x-group": "deprecated"
     },
-    "cdp_network_id": {
+    "acolyt_config": {
+      "title": "Acolyt Configuration",
+      "type": "object",
+      "description": "Acolyt integration configuration settings",
+      "deprecated": true,
+      "x-group": "deprecated"
+    },
+    "allora_skills": {
+      "title": "Allora Skills",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of Allora-specific skills available to this agent",
+      "deprecated": true,
+      "x-group": "deprecated"
+    },
+    "allora_config": {
+      "title": "Allora Configuration",
+      "type": "object",
+      "description": "Allora integration configuration settings",
+      "deprecated": true,
+      "x-group": "deprecated"
+    },
+    "elfa_skills": {
+      "title": "Elfa Skills",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of Elfa-specific skills available to this agent",
+      "deprecated": true,
+      "x-group": "deprecated"
+    },
+    "elfa_config": {
+      "title": "Elfa Configuration",
+      "type": "object",
+      "description": "Elfa integration configuration settings",
+      "deprecated": true,
+      "x-group": "deprecated"
+    },
+    "wallet_provider": {
+      "title": "Wallet Provider",
       "type": "string",
-      "description": "Network identifier for CDP integration",
+      "description": "Provider of the agent's wallet",
+      "enum": [
+        "cdp"
+      ],
+      "default": "cdp",
+      "x-group": "internal"
+    },
+    "network_id": {
+      "title": "Network ID",
+      "type": "string",
+      "description": "Network identifier",
       "default": "base-mainnet",
       "enum": [
         "ethereum-mainnet",
@@ -293,182 +610,10 @@
         "arbitrum-mainnet",
         "arbitrum-sepolia",
         "optimism-mainnet",
-        "optimism-sepolia"
+        "optimism-sepolia",
+        "solana"
       ],
-      "x-group": "onchain"
-    },
-    "crossmint_config": {
-      "type": "object",
-      "description": "Dict of Crossmint wallet configurations",
-      "x-group": "experimental"
-    },
-    "goat_enabled": {
-      "type": "boolean",
-      "description": "Whether GOAT integration is enabled",
-      "default": false,
-      "x-group": "experimental"
-    },
-    "goat_skills": {
-      "type": "object",
-      "description": "Dict of GOAT skills and their corresponding configurations",
-      "x-group": "experimental"
-    },
-    "twitter_entrypoint_enabled": {
-      "type": "boolean",
-      "description": "Whether the agent can receive events from Twitter",
-      "default": false,
-      "x-group": "experimental"
-    },
-    "twitter_config": {
-      "type": "object",
-      "description": "Twitter integration configuration settings",
-      "x-group": "experimental"
-    },
-    "twitter_skills": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "List of Twitter-specific skills available to this agent",
-      "deprecated": true,
-      "x-group": "deprecated"
-    },
-    "telegram_entrypoint_enabled": {
-      "type": "boolean",
-      "description": "Whether the agent can receive events from Telegram",
-      "default": false,
-      "x-group": "social"
-    },
-    "telegram_config": {
-      "type": "object",
-      "description": "Telegram integration configuration settings",
-      "x-group": "social"
-    },
-    "telegram_skills": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "List of Telegram-specific skills available to this agent",
-      "deprecated": true,
-      "x-group": "deprecated"
-    },
-    "crestal_skills": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "List of Crestal platform-specific skills available to this agent",
-      "deprecated": true,
-      "x-group": "deprecated"
-    },
-    "common_skills": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "List of general-purpose skills available to this agent",
-      "deprecated": true,
-      "x-group": "deprecated"
-    },
-    "skills": {
-      "type": "object",
-      "description": "Dict of skills and their corresponding configurations",
-      "x-group": "skills",
-      "x-inline": true,
-      "properties": {
-        "cdp": {
-          "$ref": "../skills/cdp/schema.json"
-        },
-        "twitter": {
-          "$ref": "../skills/twitter/schema.json"
-        },
-        "acolyt": {
-          "$ref": "../skills/acolyt/schema.json"
-        },
-        "allora": {
-          "$ref": "../skills/allora/schema.json"
-        },
-        "enso": {
-          "$ref": "../skills/enso/schema.json"
-        },
-        "cryptocompare": {
-          "$ref": "../skills/cryptocompare/schema.json"
-        },
-        "elfa": {
-          "$ref": "../skills/elfa/schema.json"
-        },
-        "slack": {
-          "$ref": "../skills/slack/schema.json"
-        },
-        "common": {
-          "$ref": "../skills/common/schema.json"
-        }
-      }
-    },
-    "enso_enabled": {
-      "type": "boolean",
-      "description": "Whether Enso integration is enabled",
-      "default": false,
-      "x-group": "experimental"
-    },
-    "enso_skills": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "List of Enso-specific skills available to this agent",
-      "x-group": "experimental"
-    },
-    "enso_config": {
-      "type": "object",
-      "description": "Enso integration configuration settings",
-      "x-group": "experimental"
-    },
-    "acolyt_skills": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "List of Acolyt-specific skills available to this agent",
-      "deprecated": true,
-      "x-group": "deprecated"
-    },
-    "acolyt_config": {
-      "type": "object",
-      "description": "Acolyt integration configuration settings",
-      "deprecated": true,
-      "x-group": "deprecated"
-    },
-    "allora_skills": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "List of Allora-specific skills available to this agent",
-      "deprecated": true,
-      "x-group": "deprecated"
-    },
-    "allora_config": {
-      "type": "object",
-      "description": "Allora integration configuration settings",
-      "deprecated": true,
-      "x-group": "deprecated"
-    },
-    "elfa_skills": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "List of Elfa-specific skills available to this agent",
-      "deprecated": true,
-      "x-group": "deprecated"
-    },
-    "elfa_config": {
-      "type": "object",
-      "description": "Elfa integration configuration settings",
-      "deprecated": true,
-      "x-group": "deprecated"
+      "x-group": "internal"
     }
   },
   "additionalProperties": false

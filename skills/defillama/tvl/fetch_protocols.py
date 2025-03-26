@@ -2,6 +2,7 @@
 
 from typing import Dict, List, Optional, Type, Union
 
+from langchain.schema.runnable import RunnableConfig
 from pydantic import BaseModel, Field
 
 from skills.defillama.api import fetch_protocols
@@ -137,13 +138,15 @@ class DefiLlamaFetchProtocols(DefiLlamaBaseTool):
 
     name: str = "defillama_fetch_protocols"
     description: str = FETCH_PROTOCOLS_PROMPT
-    args_schema: Type[BaseModel] = BaseModel  # No input parameters needed
 
-    def _run(self) -> DefiLlamaProtocolsOutput:
-        """Synchronous implementation - not supported."""
-        raise NotImplementedError("Use _arun instead")
+    class EmptyArgsSchema(BaseModel):
+        """Empty schema for no input parameters."""
 
-    async def _arun(self) -> DefiLlamaProtocolsOutput:
+        pass
+
+    args_schema: Type[BaseModel] = EmptyArgsSchema
+
+    async def _arun(self, config: RunnableConfig) -> DefiLlamaProtocolsOutput:
         """Fetch information about all protocols.
 
         Returns:
@@ -151,7 +154,8 @@ class DefiLlamaFetchProtocols(DefiLlamaBaseTool):
         """
         try:
             # Check rate limiting
-            is_rate_limited, error_msg = await self.check_rate_limit()
+            context = self.context_from_config(config)
+            is_rate_limited, error_msg = await self.check_rate_limit(context)
             if is_rate_limited:
                 return DefiLlamaProtocolsOutput(error=error_msg)
 

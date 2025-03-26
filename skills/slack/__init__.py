@@ -24,11 +24,11 @@ class SkillStates(TypedDict):
 class Config(SkillConfig):
     """Configuration for Slack skills."""
 
-    slack_bot_token: str
     states: SkillStates
+    slack_bot_token: str
 
 
-def get_skills(
+async def get_skills(
     config: "Config",
     is_private: bool,
     store: SkillStoreABC,

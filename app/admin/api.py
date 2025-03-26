@@ -1,6 +1,8 @@
 import asyncio
+import importlib
 import json
 import logging
+from typing import TypedDict
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramConflictError, TelegramUnauthorizedError
@@ -37,6 +39,7 @@ from models.agent import (
     AgentUpdate,
 )
 from models.db import get_db
+from skills import __all__ as skill_categories
 from utils.middleware import create_jwt_middleware
 from utils.slack_alert import send_slack_message
 
@@ -105,7 +108,8 @@ async def _process_agent_post_actions(
             api_key_name=config.cdp_api_key_name,
             private_key=config.cdp_api_key_private_key.replace("\\n", "\n"),
         )
-        wallet = Wallet.create(network_id=agent.cdp_network_id)
+        network_id = agent.network_id or agent.cdp_network_id
+        wallet = Wallet.create(network_id=network_id)
         wallet_data = wallet.export_data().to_dict()
         wallet_data["default_address_id"] = wallet.default_address.address_id
         if not agent_data:
@@ -123,7 +127,7 @@ async def _process_agent_post_actions(
 
     # Send Slack notification
     slack_message = slack_message or ("Agent Created" if is_new else "Agent Updated")
-    await _send_agent_notification(agent, wallet_data, slack_message)
+    _send_agent_notification(agent, agent_data, wallet_data, slack_message)
 
     return agent_data
 
@@ -166,13 +170,14 @@ async def _process_telegram_config(agent: Agent, agent_data: AgentData) -> None:
             )
 
 
-async def _send_agent_notification(
-    agent: Agent, wallet_data: dict, message: str
+def _send_agent_notification(
+    agent: Agent, agent_data: AgentData, wallet_data: dict, message: str
 ) -> None:
     """Send a notification about agent creation or update.
 
     Args:
         agent: The agent that was created or updated
+        agent_data: The agent data to update
         wallet_data: The agent's wallet data
         message: The notification message
     """
@@ -183,7 +188,7 @@ async def _send_agent_notification(
                 "color": "good",
                 "fields": [
                     {"title": "ENV", "short": True, "value": config.env},
-                    {"title": "Total", "short": True, "value": await Agent.count()},
+                    {"title": "Number", "short": True, "value": agent.number},
                     {"title": "ID", "short": True, "value": agent.id},
                     {"title": "Name", "short": True, "value": agent.name},
                     {"title": "Model", "short": True, "value": agent.model},
@@ -193,42 +198,41 @@ async def _send_agent_notification(
                         "value": str(agent.goat_enabled),
                     },
                     {
-                        "title": "CDP Enabled",
+                        "title": "Twitter Username",
                         "short": True,
-                        "value": str(agent.cdp_enabled),
+                        "value": agent_data.twitter_username,
                     },
                     {
-                        "title": "CDP Network",
-                        "short": True,
-                        "value": agent.cdp_network_id or "Default",
-                    },
-                    {
-                        "title": "Autonomous",
-                        "short": True,
-                        "value": str(agent.autonomous_enabled),
-                    },
-                    {
-                        "title": "Autonomous Interval",
-                        "short": True,
-                        "value": str(agent.autonomous_minutes),
-                    },
-                    {
-                        "title": "Twitter Entrypoint",
-                        "short": True,
-                        "value": str(agent.twitter_entrypoint_enabled),
-                    },
-                    {
-                        "title": "Telegram Entrypoint",
+                        "title": "Telegram Enabled",
                         "short": True,
                         "value": str(agent.telegram_entrypoint_enabled),
                     },
                     {
-                        "title": "Twitter Skills",
-                        "value": str(agent.twitter_skills),
+                        "title": "Telegram Username",
+                        "short": True,
+                        "value": agent_data.telegram_username,
                     },
                     {
-                        "title": "CDP Wallet Address",
+                        "title": "Wallet Provider",
+                        "short": True,
+                        "value": agent.wallet_provider,
+                    },
+                    {
+                        "title": "Network",
+                        "short": True,
+                        "value": agent.network_id or agent.cdp_network_id or "Default",
+                    },
+                    {
+                        "title": "Wallet Address",
                         "value": wallet_data.get("default_address_id"),
+                    },
+                    {
+                        "title": "Autonomous",
+                        "value": str(agent.autonomous),
+                    },
+                    {
+                        "title": "Skills",
+                        "value": str(agent.skills),
                     },
                 ],
             }
@@ -339,7 +343,6 @@ async def create_agent(
 
     # Create new agent
     await agent.check_upstream_id()
-    agent.check_prompt()
     latest_agent = await agent.create()
 
     # Process common post-creation actions
@@ -462,6 +465,8 @@ async def get_agent(
         - 404: Agent not found
     """
     agent = await Agent.get(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
 
     # Get agent data
     agent_data = await AgentData.get(agent_id)
@@ -580,7 +585,84 @@ async def export_agent(
     agent = await Agent.get(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
+    # Ensure agent.skills is initialized
+    if agent.skills is None:
+        agent.skills = {}
 
+    # Process all skill categories
+    for category in skill_categories:
+        try:
+            # Dynamically import the skill module
+            skill_module = importlib.import_module(f"skills.{category}")
+
+            # Check if the module has a Config class and get_skills function
+            if hasattr(skill_module, "Config") and hasattr(skill_module, "get_skills"):
+                # Get or create the config for this category
+                category_config = agent.skills.get(category, {})
+
+                # Ensure 'enabled' field exists (required by SkillConfig)
+                if "enabled" not in category_config:
+                    category_config["enabled"] = False
+
+                # Ensure states dict exists
+                if "states" not in category_config:
+                    category_config["states"] = {}
+
+                # Get all available skill states from the module
+                available_skills = []
+                if hasattr(skill_module, "SkillStates") and hasattr(
+                    skill_module.SkillStates, "__annotations__"
+                ):
+                    available_skills = list(
+                        skill_module.SkillStates.__annotations__.keys()
+                    )
+                # Add missing skills with disabled state
+                for skill_name in available_skills:
+                    if skill_name not in category_config["states"]:
+                        category_config["states"][skill_name] = "disabled"
+
+                # Get all required fields from Config class and its base classes
+                config_class = skill_module.Config
+                # Get all base classes of Config
+                all_bases = [config_class]
+                for base in config_class.__mro__[1:]:
+                    if base is TypedDict or base is dict or base is object:
+                        continue
+                    all_bases.append(base)
+
+                # Collect all required fields from Config and its base classes
+                for base in all_bases:
+                    if hasattr(base, "__annotations__"):
+                        for field_name, field_type in base.__annotations__.items():
+                            # Skip fields already set or marked as NotRequired
+                            if field_name in category_config or "NotRequired" in str(
+                                field_type
+                            ):
+                                continue
+                            # Add default value based on type
+                            if field_name != "states":  # states already handled above
+                                if "str" in str(field_type):
+                                    category_config[field_name] = ""
+                                elif "bool" in str(field_type):
+                                    category_config[field_name] = False
+                                elif "int" in str(field_type):
+                                    category_config[field_name] = 0
+                                elif "float" in str(field_type):
+                                    category_config[field_name] = 0.0
+                                elif "list" in str(field_type) or "List" in str(
+                                    field_type
+                                ):
+                                    category_config[field_name] = []
+                                elif "dict" in str(field_type) or "Dict" in str(
+                                    field_type
+                                ):
+                                    category_config[field_name] = {}
+
+                # Update the agent's skills config
+                agent.skills[category] = category_config
+        except (ImportError, AttributeError):
+            # Skip if module import fails or doesn't have required components
+            pass
     yaml_content = agent.to_yaml()
     return Response(
         content=yaml_content,

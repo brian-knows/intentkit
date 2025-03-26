@@ -1,6 +1,6 @@
 """Acolyt skill module."""
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from abstracts.skill import SkillStoreABC
 from skills.acolyt.ask import AcolytAskGpt
@@ -15,19 +15,14 @@ class SkillStates(TypedDict):
     ask_gpt: SkillState
 
 
-class AcolytClientConfig(TypedDict):
-    """Configuration for Acolyt API client."""
-
-    api_key: str
-
-
-class Config(SkillConfig, AcolytClientConfig):
+class Config(SkillConfig):
     """Configuration for Acolyt skills."""
 
     states: SkillStates
+    api_key: NotRequired[str]
 
 
-def get_skills(
+async def get_skills(
     config: "Config",
     is_private: bool,
     store: SkillStoreABC,

@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import textwrap
 from datetime import datetime, timezone
 from typing import Annotated, Any, Dict, List, Literal, Optional
 
@@ -17,7 +18,6 @@ from sqlalchemy import (
     DateTime,
     Float,
     Identity,
-    Integer,
     String,
     func,
     select,
@@ -37,6 +37,7 @@ class AgentAutonomous(BaseModel):
         str,
         PydanticField(
             description="Unique identifier for the autonomous configuration",
+            default_factory=lambda: str(XID()),
             min_length=1,
             max_length=20,
             pattern=r"^[a-z0-9-]+$",
@@ -175,6 +176,21 @@ class AgentTable(Base):
         nullable=True,
         comment="Slug of the agent, used for URL generation",
     )
+    description = Column(
+        String,
+        nullable=True,
+        comment="Description of the agent, for public view, not contained in prompt",
+    )
+    external_website = Column(
+        String,
+        nullable=True,
+        comment="Link of external website of the agent, if you have one",
+    )
+    picture = Column(
+        String,
+        nullable=True,
+        comment="Picture of the agent",
+    )
     ticker = Column(
         String,
         nullable=True,
@@ -184,6 +200,16 @@ class AgentTable(Base):
         String,
         nullable=True,
         comment="Token address of the agent",
+    )
+    token_pool = Column(
+        String,
+        nullable=True,
+        comment="Pool of the agent token",
+    )
+    mode = Column(
+        String,
+        nullable=True,
+        comment="Mode of the agent, public or private",
     )
     purpose = Column(
         String,
@@ -216,12 +242,23 @@ class AgentTable(Base):
         nullable=True,
         comment="Additional data store for upstream use",
     )
+    wallet_provider = Column(
+        String,
+        nullable=True,
+        comment="Provider of the agent's wallet",
+    )
+    network_id = Column(
+        String,
+        nullable=True,
+        default="base-mainnet",
+        comment="Network identifier",
+    )
     # AI part
     model = Column(
         String,
         nullable=True,
         default="gpt-4o-mini",
-        comment="AI model identifier to be used by this agent for processing requests. Available models: gpt-4o, gpt-4o-mini, chatgpt-4o-latest, deepseek-chat, deepseek-reasoner, grok-2",
+        comment="AI model identifier to be used by this agent for processing requests. Available models: gpt-4o, gpt-4o-mini, deepseek-chat, deepseek-reasoner, grok-2, eternalai",
     )
     prompt = Column(
         String,
@@ -237,42 +274,25 @@ class AgentTable(Base):
         Float,
         nullable=True,
         default=0.7,
-        comment="AI model temperature parameter controlling response randomness (0.0~1.0)",
+        comment="Controls response randomness (0.0~2.0). Higher values increase creativity but may reduce accuracy. For rigorous tasks, use lower values.",
     )
     frequency_penalty = Column(
         Float,
         nullable=True,
         default=0.0,
-        comment="Frequency penalty for the AI model, a higher value penalizes new tokens based on their existing frequency in the chat history (-2.0~2.0)",
+        comment="Controls repetition in responses (-2.0~2.0). Higher values reduce repetition, lower values allow more repetition.",
     )
     presence_penalty = Column(
         Float,
         nullable=True,
         default=0.0,
-        comment="Presence penalty for the AI model, a higher value penalizes new tokens based on whether they appear in the chat history (-2.0~2.0)",
+        comment="Controls topic adherence (-2.0~2.0). Higher values allow more topic deviation, lower values enforce stricter topic adherence.",
     )
     # autonomous mode
     autonomous = Column(
         JSONB,
         nullable=True,
         comment="Autonomous agent configurations",
-    )
-    autonomous_enabled = Column(
-        Boolean,
-        nullable=True,
-        default=False,
-        comment="Whether the agent can operate autonomously without user input",
-    )
-    autonomous_minutes = Column(
-        Integer,
-        nullable=True,
-        default=240,
-        comment="Interval in minutes between autonomous operations when enabled",
-    )
-    autonomous_prompt = Column(
-        String,
-        nullable=True,
-        comment="Special prompt used during autonomous operation mode",
     )
     # skills
     skills = Column(
@@ -320,12 +340,12 @@ class AgentTable(Base):
         Boolean,
         nullable=True,
         default=False,
-        comment="Whether the agent can receive events from Twitter",
+        comment="Dangerous, reply all mentions from x.com",
     )
     twitter_config = Column(
         JSONB,
         nullable=True,
-        comment="This configuration will be used for entrypoint only",
+        comment="You must use your own key for twitter entrypoint, it is separated from twitter skills",
     )
     # twitter skills require config, but not require twitter_enabled flag.
     # As long as twitter_skills is not empty, the corresponding skills will be loaded.
@@ -462,7 +482,7 @@ class AgentUpdate(BaseModel):
             max_length=50,
             json_schema_extra={
                 "x-group": "basic",
-                "x-placeholder": "Enter agent name",
+                "x-placeholder": "Name your agent",
             },
         ),
     ]
@@ -479,6 +499,40 @@ class AgentUpdate(BaseModel):
             },
         ),
     ]
+    description: Annotated[
+        Optional[str],
+        PydanticField(
+            default=None,
+            description="Description of the agent, for public view, not contained in prompt",
+            json_schema_extra={
+                "x-group": "basic",
+                "x-placeholder": "Introduce your agent",
+            },
+        ),
+    ]
+    external_website: Annotated[
+        Optional[str],
+        PydanticField(
+            default=None,
+            description="Link of external website of the agent, if you have one",
+            json_schema_extra={
+                "x-group": "basic",
+                "x-placeholder": "Enter agent external website url",
+                "format": "uri",
+            },
+        ),
+    ]
+    picture: Annotated[
+        Optional[str],
+        PydanticField(
+            default=None,
+            description="Picture of the agent",
+            json_schema_extra={
+                "x-group": "experimental",
+                "x-placeholder": "Upload a picture of your agent",
+            },
+        ),
+    ]
     ticker: Annotated[
         Optional[str],
         PydanticField(
@@ -488,7 +542,7 @@ class AgentUpdate(BaseModel):
             min_length=3,
             json_schema_extra={
                 "x-group": "basic",
-                "x-placeholder": "Enter agent ticker",
+                "x-placeholder": "If one day, your agent has it's own token, what will it be?",
             },
         ),
     ]
@@ -500,6 +554,29 @@ class AgentUpdate(BaseModel):
             max_length=42,
             json_schema_extra={
                 "x-group": "internal",
+                "readOnly": True,
+            },
+        ),
+    ]
+    token_pool: Annotated[
+        Optional[str],
+        PydanticField(
+            default=None,
+            description="Pool of the agent token",
+            max_length=42,
+            json_schema_extra={
+                "x-group": "internal",
+                "readOnly": True,
+            },
+        ),
+    ]
+    mode: Annotated[
+        Optional[Literal["public", "private"]],
+        PydanticField(
+            default=None,
+            description="Mode of the agent, public or private",
+            json_schema_extra={
+                "x-group": "basic",
             },
         ),
     ]
@@ -511,7 +588,7 @@ class AgentUpdate(BaseModel):
             max_length=20000,
             json_schema_extra={
                 "x-group": "basic",
-                "x-placeholder": "Enter agent purpose",
+                "x-placeholder": "Enter agent purpose, it will be a part of the system prompt",
                 "pattern": "^(([^#].*)|#[^# ].*|#{3,}[ ].*|$)(\n(([^#].*)|#[^# ].*|#{3,}[ ].*|$))*$",
                 "errorMessage": {
                     "pattern": "Level 1 and 2 headings (# and ##) are not allowed. Please use level 3+ headings (###, ####, etc.) instead."
@@ -527,7 +604,7 @@ class AgentUpdate(BaseModel):
             max_length=20000,
             json_schema_extra={
                 "x-group": "basic",
-                "x-placeholder": "Enter agent personality",
+                "x-placeholder": "Enter agent personality, it will be a part of the system prompt",
                 "pattern": "^(([^#].*)|#[^# ].*|#{3,}[ ].*|$)(\n(([^#].*)|#[^# ].*|#{3,}[ ].*|$))*$",
                 "errorMessage": {
                     "pattern": "Level 1 and 2 headings (# and ##) are not allowed. Please use level 3+ headings (###, ####, etc.) instead."
@@ -543,7 +620,7 @@ class AgentUpdate(BaseModel):
             max_length=20000,
             json_schema_extra={
                 "x-group": "basic",
-                "x-placeholder": "Enter agent principles",
+                "x-placeholder": "Enter agent principles, it will be a part of the system prompt",
                 "pattern": "^(([^#].*)|#[^# ].*|#{3,}[ ].*|$)(\n(([^#].*)|#[^# ].*|#{3,}[ ].*|$))*$",
                 "errorMessage": {
                     "pattern": "Level 1 and 2 headings (# and ##) are not allowed. Please use level 3+ headings (###, ####, etc.) instead."
@@ -635,7 +712,7 @@ class AgentUpdate(BaseModel):
         Optional[float],
         PydanticField(
             default=0.7,
-            description="AI model temperature parameter controlling response randomness (0.0~2.0)",
+            description="The randomness of the generated results is such that the higher the number, the more creative the results will be. However, this also makes them wilder and increases the likelihood of errors. For creative tasks, you can adjust it to above 1, but for rigorous tasks, such as quantitative trading, it's advisable to set it lower, around 0.2. (0.0~2.0)",
             ge=0.0,
             le=2.0,
             json_schema_extra={
@@ -647,7 +724,7 @@ class AgentUpdate(BaseModel):
         Optional[float],
         PydanticField(
             default=0.0,
-            description="Frequency penalty for the AI model, a higher value penalizes new tokens based on their existing frequency in the chat history (-2.0~2.0)",
+            description="The frequency penalty is a measure of how much the AI is allowed to repeat itself. A lower value means the AI is more likely to repeat previous responses, while a higher value means the AI is more likely to generate new content. For creative tasks, you can adjust it to 1 or a bit higher. (-2.0~2.0)",
             ge=-2.0,
             le=2.0,
             json_schema_extra={
@@ -659,7 +736,7 @@ class AgentUpdate(BaseModel):
         Optional[float],
         PydanticField(
             default=0.0,
-            description="Presence penalty for the AI model, a higher value penalizes new tokens based on whether they appear in the chat history (-2.0~2.0)",
+            description="The presence penalty is a measure of how much the AI is allowed to deviate from the topic. A higher value means the AI is more likely to deviate from the topic, while a lower value means the AI is more likely to follow the topic. For creative tasks, you can adjust it to 1 or a bit higher. (-2.0~2.0)",
             ge=-2.0,
             le=2.0,
             json_schema_extra={
@@ -692,39 +769,6 @@ class AgentUpdate(BaseModel):
             },
         ),
     ]
-    autonomous_enabled: Annotated[
-        Optional[bool],
-        PydanticField(
-            default=False,
-            deprecated="Please use autonomous instead",
-            description="Whether the agent can operate autonomously without user input",
-            json_schema_extra={
-                "x-group": "deprecated",
-            },
-        ),
-    ]
-    autonomous_minutes: Annotated[
-        Optional[int],
-        PydanticField(
-            default=240,
-            deprecated="Please use autonomous instead",
-            description="Interval in minutes between autonomous operations when enabled",
-            json_schema_extra={
-                "x-group": "deprecated",
-            },
-        ),
-    ]
-    autonomous_prompt: Annotated[
-        Optional[str],
-        PydanticField(
-            default=None,
-            deprecated="Please use autonomous instead",
-            description="Special prompt used during autonomous operation mode",
-            json_schema_extra={
-                "x-group": "deprecated",
-            },
-        ),
-    ]
     # skills
     skills: Annotated[
         Optional[Dict[str, Any]],
@@ -737,14 +781,48 @@ class AgentUpdate(BaseModel):
             },
         ),
     ]
+    wallet_provider: Annotated[
+        Optional[Literal["cdp"]],
+        PydanticField(
+            default="cdp",
+            description="Provider of the agent's wallet",
+            json_schema_extra={
+                "x-group": "onchain",
+            },
+        ),
+    ]
+    network_id: Annotated[
+        Optional[
+            Literal[
+                "ethereum-mainnet",
+                "ethereum-sepolia",
+                "polygon-mainnet",
+                "polygon-mumbai",
+                "base-mainnet",
+                "base-sepolia",
+                "arbitrum-mainnet",
+                "arbitrum-sepolia",
+                "optimism-mainnet",
+                "optimism-sepolia",
+                "solana",
+            ]
+        ],
+        PydanticField(
+            default="base-mainnet",
+            description="Network identifier",
+            json_schema_extra={
+                "x-group": "onchain",
+            },
+        ),
+    ]
     # if cdp_enabled, agent will have a cdp wallet
     cdp_enabled: Annotated[
         Optional[bool],
         PydanticField(
             default=False,
-            description="Whether CDP (Crestal Development Platform) integration is enabled",
+            description="Whether CDP (Coinbase Development Platform) integration is enabled",
             json_schema_extra={
-                "x-group": "onchain",
+                "x-group": "deprecated",
             },
         ),
     ]
@@ -778,7 +856,7 @@ class AgentUpdate(BaseModel):
             default="base-mainnet",
             description="Network identifier for CDP integration",
             json_schema_extra={
-                "x-group": "onchain",
+                "x-group": "deprecated",
             },
         ),
     ]
@@ -818,9 +896,9 @@ class AgentUpdate(BaseModel):
         Optional[bool],
         PydanticField(
             default=False,
-            description="Whether the agent can receive events from Twitter",
+            description="Dangerous, reply all mentions from x.com",
             json_schema_extra={
-                "x-group": "experimental",
+                "x-group": "entrypoint",
             },
         ),
     ]
@@ -828,9 +906,9 @@ class AgentUpdate(BaseModel):
         Optional[dict],
         PydanticField(
             default=None,
-            description="This configuration will be used for entrypoint only",
+            description="You must use your own key for twitter entrypoint, it is separated from twitter skills",
             json_schema_extra={
-                "x-group": "experimental",
+                "x-group": "entrypoint",
             },
         ),
     ]
@@ -849,9 +927,9 @@ class AgentUpdate(BaseModel):
         Optional[bool],
         PydanticField(
             default=False,
-            description="Whether the agent can receive events from Telegram",
+            description="Whether the agent can play telegram bot",
             json_schema_extra={
-                "x-group": "social",
+                "x-group": "entrypoint",
             },
         ),
     ]
@@ -861,7 +939,7 @@ class AgentUpdate(BaseModel):
             default=None,
             description="Telegram integration configuration settings",
             json_schema_extra={
-                "x-group": "social",
+                "x-group": "entrypoint",
             },
         ),
     ]
@@ -927,9 +1005,10 @@ class AgentUpdate(BaseModel):
         Optional[bool],
         PydanticField(
             default=False,
+            deprecated="Please use skills instead",
             description="Whether Enso integration is enabled",
             json_schema_extra={
-                "x-group": "experimental",
+                "x-group": "deprecated",
             },
         ),
     ]
@@ -938,10 +1017,10 @@ class AgentUpdate(BaseModel):
         Optional[List[str]],
         PydanticField(
             default=None,
-            deprecated="Please use enso_enabled instead",
+            deprecated="Please use skills instead",
             description="List of Enso-specific skills available to this agent",
             json_schema_extra={
-                "x-group": "experimental",
+                "x-group": "deprecated",
             },
         ),
     ]
@@ -952,7 +1031,7 @@ class AgentUpdate(BaseModel):
             deprecated="Please use skills instead",
             description="Enso integration configuration settings",
             json_schema_extra={
-                "x-group": "experimental",
+                "x-group": "deprecated",
             },
         ),
     ]
@@ -1050,7 +1129,7 @@ class AgentUpdate(BaseModel):
             db_agent = await db.get(AgentTable, id)
             if not db_agent:
                 raise HTTPException(status_code=404, detail="Agent not found")
-            # check onwer
+            # check owner
             if self.owner and db_agent.owner != self.owner:
                 raise HTTPException(
                     status_code=403,
@@ -1165,6 +1244,18 @@ class Agent(AgentCreate):
         data = {}
         yaml_lines = []
 
+        def wrap_text(text: str, width: int = 80, prefix: str = "# ") -> list[str]:
+            """Wrap text to specified width, preserving existing line breaks."""
+            lines = []
+            for paragraph in text.split("\n"):
+                if not paragraph:
+                    lines.append(prefix.rstrip())
+                    continue
+                # Use textwrap to wrap each paragraph
+                wrapped = textwrap.wrap(paragraph, width=width - len(prefix))
+                lines.extend(prefix + line for line in wrapped)
+            return lines
+
         # Get the field names from AgentUpdate model for filtering
         agent_update_fields = set(AgentUpdate.model_fields.keys())
 
@@ -1191,15 +1282,16 @@ class Agent(AgentCreate):
             if description:
                 if len(yaml_lines) > 0:  # Add blank line between fields
                     yaml_lines.append("")
-                # Split description into multiple lines if too long
-                desc_lines = [f"# {line}" for line in description.split("\n")]
-                yaml_lines.extend(desc_lines)
+                # Split and wrap description into multiple lines
+                yaml_lines.extend(wrap_text(description))
 
             # Check if the field is deprecated and add deprecation notice
             if is_deprecated:
                 # Add deprecation message
                 if hasattr(field, "deprecation_message") and field.deprecation_message:
-                    yaml_lines.append(f"# Deprecated: {field.deprecation_message}")
+                    yaml_lines.extend(
+                        wrap_text(f"Deprecated: {field.deprecation_message}")
+                    )
                 else:
                     yaml_lines.append("# Deprecated")
 
@@ -1460,7 +1552,7 @@ class AgentDataTable(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
-        onupdate=func.now(),
+        onupdate=lambda: datetime.now(timezone.utc),
         comment="Timestamp when the agent data was last updated",
     )
 

@@ -25,19 +25,14 @@ class SkillStates(TypedDict):
     fetch_top_volume: SkillState
 
 
-class CryptoCompareConfig(TypedDict):
-    """Configuration for CryptoCompare API client."""
-
-    api_key: str
-
-
-class Config(SkillConfig, CryptoCompareConfig):
+class Config(SkillConfig):
     """Configuration for CryptoCompare skills."""
 
     states: SkillStates
+    api_key: str
 
 
-def get_skills(
+async def get_skills(
     config: "Config",
     is_private: bool,
     store: SkillStoreABC,
