@@ -62,6 +62,7 @@ from models.db import get_pool, get_session
 from models.skill import AgentSkillData, ThreadSkillData
 from skills.acolyt import get_acolyt_skill
 from skills.allora import get_allora_skill
+from skills.brian import get_brian_skill
 from skills.cdp.get_balance import GetBalance
 from skills.elfa import get_elfa_skill
 from skills.enso import get_enso_skill
@@ -299,7 +300,26 @@ async def initialize_agent(aid, is_private=False):
                             logger.warning(e)
                 except Exception as e:
                     logger.warning(e)
-
+    # Brian skills
+    if (
+        agent.brian_skills
+        and len(agent.brian_skills) > 0
+        and agent.brian_config
+        and ("brian" not in agent.skills if agent.skills else True)
+    ):
+        for skill in agent.brian_skills:
+            try:
+                s = get_brian_skill(
+                    skill,
+                    agent.brian_config.get("api_key"),
+                    cdp_wallet_provider._wallet if cdp_wallet_provider else None,
+                    skill_store,
+                    agent_store,
+                    aid,
+                )
+                tools.append(s)
+            except Exception as e:
+                logger.warning(e)
     # Enso skills
     if (
         agent.enso_skills

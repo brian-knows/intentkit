@@ -358,6 +358,23 @@ class AgentTable(Base):
         nullable=True,
         comment="List of general-purpose skills available to this agent",
     )
+    # if brian_enabled, the brian skillset will be enabled, brian_config will be checked
+    brian_enabled = Column(
+        Boolean,
+        nullable=True,
+        default=False,
+        comment="Whether Brian integration is enabled",
+    )
+    brian_skills = Column(
+        ARRAY(String),
+        nullable=True,
+        comment="List of Brian-specific skills available to this agent",
+    )
+    brian_config = Column(
+        JSONB,
+        nullable=True,
+        comment="Brian integration configuration settings",
+    )
     # if enso_enabled, the enso skillset will be enabled, enso_config will be checked
     enso_enabled = Column(
         Boolean,
@@ -869,6 +886,39 @@ class AgentUpdate(BaseModel):
             description="List of general-purpose skills available to this agent",
             json_schema_extra={
                 "x-group": "deprecated",
+            },
+        ),
+    ]
+    # if brian_enabled, the brian skillset will be enabled, brian_config will be checked
+    brian_enabled: Annotated[
+        Optional[bool],
+        PydanticField(
+            default=False,
+            description="Whether Brian integration is enabled",
+            json_schema_extra={
+                "x-group": "experimental",
+            },
+        ),
+    ]
+    brian_skills: Annotated[
+        Optional[List[str]],
+        PydanticField(
+            default=None,
+            deprecated="Please use brian_enabled instead",
+            description="List of Brian-specific skills available to this agent",
+            json_schema_extra={
+                "x-group": "experimental",
+            },
+        ),
+    ]
+    brian_config: Annotated[
+        Optional[dict],
+        PydanticField(
+            default=None,
+            deprecated="Please use skills instead",
+            description="Brian integration configuration settings",
+            json_schema_extra={
+                "x-group": "experimental",
             },
         ),
     ]
